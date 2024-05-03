@@ -21,12 +21,12 @@ message SearchTVShowsResponse {
 repeated TVShow tv_shows = 1;
 }
 
-message AddShowRequest {
+message AddTvShowRequest {
     string title = 1;
     string description = 2;
 }
 
-message AddShowResponse {
+message AddTvShowResponse {
     bool success = 1;
     string message = 2;
 }
@@ -34,7 +34,7 @@ message AddShowResponse {
 service TVShowService {
 rpc GetTvshow(GetTVShowRequest) returns (GetTVShowResponse);
 rpc SearchTvshows(SearchTVShowsRequest) returns (SearchTVShowsResponse);
-rpc AddShow(AddShowRequest) returns (AddShowResponse);
+rpc AddTvShow(AddTvShowRequest) returns (AddTvShowResponse);
 
 // Ajouter d'autres méthodes au besoin
 }
