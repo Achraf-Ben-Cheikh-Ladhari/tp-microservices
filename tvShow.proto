@@ -20,9 +20,21 @@ string query = 1;
 message SearchTVShowsResponse {
 repeated TVShow tv_shows = 1;
 }
+
+message AddShowRequest {
+    string title = 1;
+    string description = 2;
+}
+
+message AddShowResponse {
+    bool success = 1;
+    string message = 2;
+}
 // Définition du service de séries TV
 service TVShowService {
 rpc GetTvshow(GetTVShowRequest) returns (GetTVShowResponse);
 rpc SearchTvshows(SearchTVShowsRequest) returns (SearchTVShowsResponse);
+rpc AddShow(AddShowRequest) returns (AddShowResponse);
+
 // Ajouter d'autres méthodes au besoin
 }
