@@ -1,8 +1,9 @@
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
 //const { MongoClient } = require('mongodb');
-const mongoose=require('mongoose');
+const mongoose = require('mongoose');
 const Movie = require('./models/movieModel');
+const { Kafka } = require('kafkajs');
 
 const movieProtoPath = 'movie.proto';
 const movieProtoDefinition = protoLoader.loadSync(movieProtoPath, {
@@ -12,58 +13,113 @@ const movieProtoDefinition = protoLoader.loadSync(movieProtoPath, {
     defaults: true,
     oneofs: true,
 });
+const kafka = new Kafka({
+    clientId: 'my-app',
+    brokers: ['localhost:9092']
+});
 
+const producer = kafka.producer();
 const movieProto = grpc.loadPackageDefinition(movieProtoDefinition).movie;
 
 const url = 'mongodb://localhost:27017/moviesDB';
 //const dbName = 'moviesDB';
 
 mongoose.connect(url)
-.then(()=>{
-    console.log('connected to database!');
-}).catch((err)=>{
-    console.log(err);
-})
+    .then(() => {
+        console.log('connected to database!');
+    }).catch((err) => {
+        console.log(err);
+    })
 
 const movieService = {
     getMovie: async (call, callback) => {
+        await producer.connect();
         try {
             const movieId = call.request.movie_id;
-           // console.log(call.request);
+            // console.log(call.request);
             const movie = await Movie.findOne({ _id: movieId }).exec();
             //console.log(movieId);
+            await producer.send({
+                topic: 'movies-topic',
+                messages: [{ value: 'Searched for TV show id : '+movieId.toString() }],
+            });
             if (!movie) {
+                
                 callback({ code: grpc.status.NOT_FOUND, message: 'Movie not found' });
                 return;
             }
             callback(null, { movie });
         } catch (error) {
+            //await producer.connect();
+            await producer.send({
+                topic: 'movies-topic',
+                messages: [{ value: `Error occurred while fetching movie: ${error}` }],
+            });
             callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching movie' });
         }
     },
-    searchMovies: (call, callback) => {
-        Movie.find({})
-            .exec() 
+    searchMovies: async(call, callback) => {
+        try{
+        const movies = await Movie.find({}).exec();
+        await producer.connect();
+        await producer.send({
+            topic: 'movies-topic',
+            messages: [{ value: 'Searched for Movies' }],
+        });
+
+        callback(null, { movies });
+        }catch(error){
+            await producer.connect();
+            await producer.send({
+                topic: 'movies-topic',
+                messages: [{ value: `Error occurred while fetching Movies: ${error}` }],
+            });
+
+            callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching Movies' });
+        }
+
+       /* Movie.find({})
+            .exec()
             .then(movies => {
                 callback(null, { movies });
             })
             .catch(error => {
                 callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching movies' });
-            });
-    },  
-    addMovie: (call, callback) => {
+            });*/
+    },
+    addMovie: async (call, callback) => {
+        /* const { title, description } = call.request;
+         const newMovie = new Movie({ title, description });
+         newMovie.save()
+             .then(savedMovie => {
+                 callback(null, { movie: savedMovie });
+             })
+             .catch(error => {
+                 callback({ code: grpc.status.INTERNAL, message: 'Error occurred while adding movie' });
+             });*/
         const { title, description } = call.request;
+        console.log(call.request);
         const newMovie = new Movie({ title, description });
-        newMovie.save()
-            .then(savedMovie => {
-                callback(null, { movie: savedMovie });
-            })
-            .catch(error => {
-                callback({ code: grpc.status.INTERNAL, message: 'Error occurred while adding movie' });
+
+        try {
+            await producer.connect();
+
+            await producer.send({
+                topic: 'movies-topic',
+                messages: [{ value: JSON.stringify(newMovie) }],
             });
+
+            await producer.disconnect();
+
+            const savedMovie = await newMovie.save();
+
+            callback(null, { movie: savedMovie });
+        } catch (error) {
+            callback({ code: grpc.status.INTERNAL, message: 'Error occurred while adding tv show' });
+        }
     }
-    
-    
+
+
 };
 
 const server = new grpc.Server();

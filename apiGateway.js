@@ -1,4 +1,3 @@
-// apiGateway.js
 const express = require('express');
 const { ApolloServer } = require('@apollo/server');
 const { expressMiddleware } = require('@apollo/server/express4');
@@ -6,12 +5,15 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
-// Charger les fichiers proto pour les films et les séries TV
+const { Kafka } = require('kafkajs');
+
+// Load proto files for movies and TV shows
 const movieProtoPath = 'movie.proto';
 const tvShowProtoPath = 'tvShow.proto';
 const resolvers = require('./resolvers');
 const typeDefs = require('./schema');
-// Créer une nouvelle application Express
+
+// Create a new Express application
 const app = express();
 const movieProtoDefinition = protoLoader.loadSync(movieProtoPath, {
     keepCase: true,
@@ -30,9 +32,30 @@ const tvShowProtoDefinition = protoLoader.loadSync(tvShowProtoPath, {
 app.use(bodyParser.json());
 const movieProto = grpc.loadPackageDefinition(movieProtoDefinition).movie;
 const tvShowProto = grpc.loadPackageDefinition(tvShowProtoDefinition).tvShow;
-// Créer une instance ApolloServer avec le schéma et les résolveurs importés
+
+const kafka = new Kafka({
+    clientId: 'my-app',
+    brokers: ['localhost:9092'] 
+});
+
+const consumer = kafka.consumer({ groupId: 'api-gateway-consumer' });
+
+consumer.subscribe({ topic: 'movies-topic' });
+consumer.subscribe({ topic: 'tv-shows-topic' });
+
+(async () => {
+    await consumer.connect();
+    await consumer.run({
+        eachMessage: async ({ topic, partition, message }) => {
+            console.log(`Received message: ${message.value.toString()}, from topic: ${topic}`);
+        },
+    });
+})();
+
+// Create ApolloServer instance with imported schema and resolvers
 const server = new ApolloServer({ typeDefs, resolvers });
-// Appliquer le middleware ApolloServer à l'application Express
+
+// Apply ApolloServer middleware to Express application
 server.start().then(() => {
     app.use(
         cors(),
@@ -52,11 +75,11 @@ app.get('/movies', (req, res) => {
         }
     });
 });
+
 app.get('/movies/:id', (req, res) => {
     const client = new movieProto.MovieService('localhost:50051',
         grpc.credentials.createInsecure());
     const id = req.params.id;
-    //console.log(id);
     client.getMovie({ movie_id: id }, (err, response) => {
         if (err) {
             res.status(500).send(err);
@@ -65,6 +88,7 @@ app.get('/movies/:id', (req, res) => {
         }
     });
 });
+
 app.post('/movies/add', (req, res) => {
     const client = new movieProto.MovieService('localhost:50051',
         grpc.credentials.createInsecure());
@@ -79,6 +103,7 @@ app.post('/movies/add', (req, res) => {
         }
     });
 });
+
 app.get('/tvshows', (req, res) => {
     const client = new tvShowProto.TVShowService('localhost:50052',
         grpc.credentials.createInsecure());
@@ -90,6 +115,7 @@ app.get('/tvshows', (req, res) => {
         }
     });
 });
+
 app.get('/tvshows/:id', (req, res) => {
     const client = new tvShowProto.TVShowService('localhost:50052',
         grpc.credentials.createInsecure());
@@ -102,6 +128,7 @@ app.get('/tvshows/:id', (req, res) => {
         }
     });
 });
+
 app.post('/tvshows/add', (req, res) => {
     const client = new tvShowProto.TVShowService('localhost:50052',
         grpc.credentials.createInsecure());
@@ -116,8 +143,9 @@ app.post('/tvshows/add', (req, res) => {
         }
     });
 });
-// Démarrer l'application Express
+
+// Start Express application
 const port = 3000;
 app.listen(port, () => {
-    console.log(`API Gateway en cours d'exécution sur le port ${port}`);
+    console.log(`API Gateway is running on port ${port}`);
 });
