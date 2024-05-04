@@ -29,6 +29,7 @@ const movieService = {
     getMovie: async (call, callback) => {
         try {
             const movieId = call.request.movie_id;
+           // console.log(call.request);
             const movie = await Movie.findOne({ _id: movieId }).exec();
             //console.log(movieId);
             if (!movie) {

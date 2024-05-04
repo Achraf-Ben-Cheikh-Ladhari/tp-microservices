@@ -41,12 +41,13 @@ const tvShowService = {
     getTvshow: async (call, callback) => {
         try{
             const tvShowId=call.request.tv_show_id;
+            //console.log(call.request);
             const tvShow = await TvShows.findOne({ _id: tvShowId }).exec();
             if (!tvShow) {
                 callback({ code: grpc.status.NOT_FOUND, message: 'Tv Show not found' });
                 return;
             }
-            callback(null, { tv_show });
+            callback(null, { tv_show:tvShow });
             
         }catch (error) {
             callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching tv show' });

@@ -28,7 +28,21 @@ const resolvers = {
             const client = new movieProto.MovieService('localhost:50051',
                 grpc.credentials.createInsecure());
             return new Promise((resolve, reject) => {
-                client.getMovie({ movieId: id }, (err, response) => {
+                client.getMovie({ movie_id: id }, (err, response) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(response.movie);
+                    }
+                });
+            });
+        },
+        addMovie: (_, { title,description }) => {
+            // Effectuer un appel gRPC au microservice de films
+            const client = new movieProto.MovieService('localhost:50051',
+                grpc.credentials.createInsecure());
+            return new Promise((resolve, reject) => {
+                client.addMovie({ title: title,description:description }, (err, response) => {
                     if (err) {
                         reject(err);
                     } else {
@@ -50,12 +64,27 @@ const resolvers = {
                     }
                 });
             });
-        }, tvShow: (_, { id }) => {
+        },
+        addTvShow: (_, { title,description }) => {
+            // Effectuer un appel gRPC au microservice de films
+            const client = new tvShowProto.TVShowService('localhost:50052',
+                grpc.credentials.createInsecure());
+            return new Promise((resolve, reject) => {
+                client.addTvShow({ title: title,description:description }, (err, response) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(response.tv_show);
+                    }
+                });
+            });
+        },
+         tvShow: (_, { id }) => {
             // Effectuer un appel gRPC au microservice de séries TV
             const client = new tvShowProto.TVShowService('localhost:50052',
                 grpc.credentials.createInsecure());
             return new Promise((resolve, reject) => {
-                client.getTvshow({ tvShowId: id }, (err, response) => {
+                client.getTvshow({ tv_show_id: id }, (err, response) => {
                     if (err) {
                         reject(err);
                     } else {
