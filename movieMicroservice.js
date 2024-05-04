@@ -1,7 +1,9 @@
-// movieMicroservice.js
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
-// Charger le fichier movie.proto
+//const { MongoClient } = require('mongodb');
+const mongoose=require('mongoose');
+const Movie = require('./models/movieModel');
+
 const movieProtoPath = 'movie.proto';
 const movieProtoDefinition = protoLoader.loadSync(movieProtoPath, {
     keepCase: true,
@@ -10,50 +12,69 @@ const movieProtoDefinition = protoLoader.loadSync(movieProtoPath, {
     defaults: true,
     oneofs: true,
 });
+
 const movieProto = grpc.loadPackageDefinition(movieProtoDefinition).movie;
-// Implémenter le service movie
+
+const url = 'mongodb://localhost:27017/moviesDB';
+//const dbName = 'moviesDB';
+
+mongoose.connect(url)
+.then(()=>{
+    console.log('connected to database!');
+}).catch((err)=>{
+    console.log(err);
+})
+
 const movieService = {
-    getMovie: (call, callback) => {
-        // Récupérer les détails du film à partir de la base de données
-        const movie = {
-            id: call.request.movie_id,
-            title: 'Exemple de film',
-            description: 'Ceci est un exemple de film.',
-            // Ajouter d'autres champs de données pour le film au besoin
-        };
-        callback(null, { movie });
+    getMovie: async (call, callback) => {
+        try {
+            const movieId = call.request.movie_id;
+            const movie = await Movie.findOne({ _id: movieId }).exec();
+            //console.log(movieId);
+            if (!movie) {
+                callback({ code: grpc.status.NOT_FOUND, message: 'Movie not found' });
+                return;
+            }
+            callback(null, { movie });
+        } catch (error) {
+            callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching movie' });
+        }
     },
     searchMovies: (call, callback) => {
-        const { query } = call.request;
-        // Effectuer une recherche de films en fonction de la requête
-        const movies = [
-            {
-                id: '1',
-                title: 'Exemple de film 1',
-                description: 'Ceci est le premier exemple de film.',
-            },
-            {
-                id: '2',
-                title: 'Exemple de film 2',
-                description: 'Ceci est le deuxième exemple de film.',
-            },
-            // Ajouter d'autres résultats de recherche de films au besoin
-        ];
-        callback(null, { movies });
-    },
-    // Ajouter d'autres méthodes au besoin
+        Movie.find({})
+            .exec() 
+            .then(movies => {
+                callback(null, { movies });
+            })
+            .catch(error => {
+                callback({ code: grpc.status.INTERNAL, message: 'Error occurred while fetching movies' });
+            });
+    },  
+    addMovie: (call, callback) => {
+        const { title, description } = call.request;
+        const newMovie = new Movie({ title, description });
+        newMovie.save()
+            .then(savedMovie => {
+                callback(null, { movie: savedMovie });
+            })
+            .catch(error => {
+                callback({ code: grpc.status.INTERNAL, message: 'Error occurred while adding movie' });
+            });
+    }
+    
+    
 };
-// Créer et démarrer le serveur gRPC
+
 const server = new grpc.Server();
 server.addService(movieProto.MovieService.service, movieService);
 const port = 50051;
 server.bindAsync(`0.0.0.0:${port}`, grpc.ServerCredentials.createInsecure(),
     (err, port) => {
         if (err) {
-            console.error('Échec de la liaison du serveur:', err);
+            console.error('Failed to bind server:', err);
             return;
         }
-        console.log(`Le serveur s'exécute sur le port ${port}`);
+        console.log(`Server is running on port ${port}`);
         server.start();
     });
-console.log(`Microservice de films en cours d'exécution sur le port ${port}`);
+console.log(`Movie microservice is running on port ${port}`);

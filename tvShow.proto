@@ -27,8 +27,7 @@ message AddTvShowRequest {
 }
 
 message AddTvShowResponse {
-    bool success = 1;
-    string message = 2;
+    TVShow tv_show = 1;
 }
 // Définition du service de séries TV
 service TVShowService {

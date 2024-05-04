@@ -27,6 +27,7 @@ const tvShowProtoDefinition = protoLoader.loadSync(tvShowProtoPath, {
     defaults: true,
     oneofs: true,
 });
+app.use(bodyParser.json());
 const movieProto = grpc.loadPackageDefinition(movieProtoDefinition).movie;
 const tvShowProto = grpc.loadPackageDefinition(tvShowProtoDefinition).tvShow;
 // Créer une instance ApolloServer avec le schéma et les résolveurs importés
@@ -39,6 +40,7 @@ server.start().then(() => {
         expressMiddleware(server),
     );
 });
+
 app.get('/movies', (req, res) => {
     const client = new movieProto.MovieService('localhost:50051',
         grpc.credentials.createInsecure());
@@ -54,7 +56,22 @@ app.get('/movies/:id', (req, res) => {
     const client = new movieProto.MovieService('localhost:50051',
         grpc.credentials.createInsecure());
     const id = req.params.id;
-    client.getMovie({ movieId: id }, (err, response) => {
+    //console.log(id);
+    client.getMovie({ movie_id: id }, (err, response) => {
+        if (err) {
+            res.status(500).send(err);
+        } else {
+            res.json(response.movie);
+        }
+    });
+});
+app.post('/movies/add', (req, res) => {
+    const client = new movieProto.MovieService('localhost:50051',
+        grpc.credentials.createInsecure());
+    const data = req.body;
+    const titre=data.title;
+    const desc= data.description
+    client.addMovie({ title: titre,description:desc }, (err, response) => {
         if (err) {
             res.status(500).send(err);
         } else {
@@ -77,7 +94,21 @@ app.get('/tvshows/:id', (req, res) => {
     const client = new tvShowProto.TVShowService('localhost:50052',
         grpc.credentials.createInsecure());
     const id = req.params.id;
-    client.getTvshow({ tvShowId: id }, (err, response) => {
+    client.getTvshow({ tv_show_id: id }, (err, response) => {
+        if (err) {
+            res.status(500).send(err);
+        } else {
+            res.json(response.tv_show);
+        }
+    });
+});
+app.post('/tvshows/add', (req, res) => {
+    const client = new tvShowProto.TVShowService('localhost:50052',
+        grpc.credentials.createInsecure());
+    const data = req.body;
+    const titre=data.title;
+    const desc= data.description
+    client.addTvShow({ title: titre,description:desc }, (err, response) => {
         if (err) {
             res.status(500).send(err);
         } else {

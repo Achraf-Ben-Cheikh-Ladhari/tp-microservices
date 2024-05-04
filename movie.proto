@@ -27,8 +27,7 @@ message AddMovieRequest {
 }
 
 message AddMovieResponse {
-    bool success = 1;
-    string message = 2;
+    Movie movie = 1;
 }
 // Définition du service de films
 service MovieService {
